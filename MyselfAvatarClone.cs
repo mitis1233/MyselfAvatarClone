@@ -1,4 +1,4 @@
-﻿using ExitGames.Client.Photon;
+using ExitGames.Client.Photon;
 using MelonLoader;
 using System.Reflection;
 using UnityEngine;
@@ -9,7 +9,7 @@ using System;
 using System.Collections;
 
 [assembly: MelonGame("VRChat")]
-[assembly: MelonInfo(typeof(MyselfAvatarClone.MyselfAvatarClone), "MyselfAvatarClone", "1.0.0")]
+[assembly: MelonInfo(typeof(MyselfAvatarClone.MyselfAvatarClone), "MyselfAvatarClone", "1.0.1")]
 
 namespace MyselfAvatarClone
 {
@@ -17,20 +17,29 @@ namespace MyselfAvatarClone
     {
         private static bool State = false;
         private static Il2CppSystem.Object avatarDictCache { get; set; }
+        GameObject quickMenu;
+
         private static void Log(string message)
         {
             VRCUiManager.prop_VRCUiManager_0.field_Private_List_1_String_0.Add(message);
-            MelonLogger.Msg(message);
         }
-        GameObject quickMenu;
+
+        private static void Detour(ref EventData __0)
+        {
+            if (State
+                && __0.Code == 253
+                && avatarDictCache != null
+                && __0.Sender == VRC.Player.prop_Player_0.field_Private_VRCPlayerApi_0.playerId
+            ) __0.Parameters[251].Cast<Il2CppSystem.Collections.Hashtable>()["avatarDict"] = avatarDictCache;
+        }
+
         public override void OnApplicationStart()
         {
             MelonCoroutines.Start(QMInitializer());
             HarmonyInstance.Patch(
-                typeof(VRCNetworkingClient)
-                .GetMethod("OnEvent")
-                , new HarmonyLib.HarmonyMethod(typeof(MyselfAvatarClone)
-                .GetMethod(nameof(Detour), BindingFlags.NonPublic | BindingFlags.Static)), null, null, null, null);
+                typeof(VRCNetworkingClient).GetMethod(nameof(VRCNetworkingClient.OnEvent)),
+                typeof(MyselfAvatarClone).GetMethod(nameof(Detour), BindingFlags.NonPublic | BindingFlags.Static).ToNewHarmonyMethod()
+            );
         }
 
         private IEnumerator QMInitializer()
@@ -39,14 +48,7 @@ namespace MyselfAvatarClone
                 yield return null;
             SelMenu();
         }
-        private static bool Detour(ref EventData __0)
-        {
-            if (__0.Code == 253 && __0.Sender == VRC.Player.prop_Player_0
-                .field_Private_VRCPlayerApi_0
-                .playerId && State && avatarDictCache != null)
-                __0.Parameters[251].Cast<Il2CppSystem.Collections.Hashtable>()["avatarDict"] = avatarDictCache;
-            return true;
-        }
+        
         private void SelMenu()
         {
             Transform ButtonTP = quickMenu.transform.Find("Container/Window/QMParent/Menu_SelectedUser_Local/ScrollRect/Viewport/VerticalLayoutGroup/Buttons_UserActions");
@@ -57,20 +59,20 @@ namespace MyselfAvatarClone
                     {
                         return;
                     }
-                    target = UserSelectionManager.field_Private_Static_UserSelectionManager_0.field_Private_APIUser_1.id;
+                    else target = UserSelectionManager.field_Private_Static_UserSelectionManager_0.field_Private_APIUser_1.id;
+
                     avatarDictCache = VRC.PlayerManager.prop_PlayerManager_0
                         .field_Private_List_1_Player_0
                         .ToArray()
-                            .Where(a => a.field_Private_APIUser_0.id == target)
-                            .FirstOrDefault()
-                                .prop_Player_1.field_Private_Hashtable_0["avatarDict"];
+                        .Where(a => a.field_Private_APIUser_0.id == target)
+                        .FirstOrDefault()
+                        .prop_Player_1.field_Private_Hashtable_0["avatarDict"];
                     Log("成功");
                 }));
             Utils.CreateDefaultButton("開關自嗨Avatar顯示", new Vector3(0, -25, 0), "開關複製Avatar功能", Color.white, ButtonTP,
                 new Action(() => {
-                    State = !State;
-                    if (State) Log("自嗨功能開啟");
-                    else Log("自嗨功能關閉");
+                    State ^= true;
+                    Log("SoftClone " + (State ? "自嗨功能開啟" : "自嗨功能關閉"));
                 }));
         }
     }
