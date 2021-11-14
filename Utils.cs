@@ -1,10 +1,9 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
-using VRC.UI;
 using TMPro;
 
-namespace Astrum
+namespace MyselfAvatarClone
 {
     class Utils
     {

@@ -9,11 +9,11 @@ using System;
 using System.Collections;
 
 [assembly: MelonGame("VRChat")]
-[assembly: MelonInfo(typeof(Astrum.AstralSoftClone), "MyselfAvatarClone", "1.0.0")]
+[assembly: MelonInfo(typeof(MyselfAvatarClone.MyselfAvatarClone), "MyselfAvatarClone", "1.0.0")]
 
-namespace Astrum
+namespace MyselfAvatarClone
 {
-    public class AstralSoftClone : MelonMod
+    public class MyselfAvatarClone : MelonMod
     {
         private static bool State = false;
         private static Il2CppSystem.Object avatarDictCache { get; set; }
@@ -29,7 +29,7 @@ namespace Astrum
             HarmonyInstance.Patch(
                 typeof(VRCNetworkingClient)
                 .GetMethod("OnEvent")
-                , new HarmonyLib.HarmonyMethod(typeof(AstralSoftClone)
+                , new HarmonyLib.HarmonyMethod(typeof(MyselfAvatarClone)
                 .GetMethod(nameof(Detour), BindingFlags.NonPublic | BindingFlags.Static)), null, null, null, null);
         }
 
