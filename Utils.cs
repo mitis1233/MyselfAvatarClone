@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using VRC.UI;
@@ -29,9 +29,5 @@ namespace Astrum
 
             return buttonTransform;
         }
-        public static Transform screens { get => GameObject.Find("UserInterface/MenuContent/Screens/").transform; }
-        public static PageWorldInfo pageWorldInfo { get => screens.Find("WorldInfo").GetComponent<PageWorldInfo>(); }
-        public static MenuController MenuControl { get => pageWorldInfo.field_Public_MenuController_0; }
-        public static VRCPlayer LocalPlayer { get => VRCPlayer.field_Internal_Static_VRCPlayer_0; }
     }
 }
