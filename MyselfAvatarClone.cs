@@ -7,17 +7,21 @@ using VRC.DataModel;
 using System.Linq;
 using System;
 using System.Collections;
+using UnhollowerRuntimeLib.XrefScans;
+using VRC;
 
 [assembly: MelonGame("VRChat")]
-[assembly: MelonInfo(typeof(MyselfAvatarClone.MyselfAvatarClone), "MyselfAvatarClone", "1.0.1")]
+[assembly: MelonInfo(typeof(MyselfAvatarClone.MyselfAvatarClone), "MyselfAvatarClone", "1.0.2")]
 
 namespace MyselfAvatarClone
 {
     public class MyselfAvatarClone : MelonMod
     {
-        private static bool State = false;
-        private static Il2CppSystem.Object avatarDictCache { get; set; }
+        private static bool _state;
+        private static Il2CppSystem.Object AvatarDictCache { get; set; }
+        private static MethodInfo _loadAvatarMethod;
         GameObject quickMenu;
+
 
         private static void Log(string message)
         {
@@ -26,20 +30,31 @@ namespace MyselfAvatarClone
 
         private static void Detour(ref EventData __0)
         {
-            if (State
+            if (_state
                 && __0.Code == 253
-                && avatarDictCache != null
+                && AvatarDictCache != null
                 && __0.Sender == VRC.Player.prop_Player_0.field_Private_VRCPlayerApi_0.playerId
-            ) __0.Parameters[251].Cast<Il2CppSystem.Collections.Hashtable>()["avatarDict"] = avatarDictCache;
+            ) __0.Parameters[251].Cast<Il2CppSystem.Collections.Hashtable>()["avatarDict"] = AvatarDictCache;
         }
 
         public override void OnApplicationStart()
         {
             MelonCoroutines.Start(QMInitializer());
+
             HarmonyInstance.Patch(
                 typeof(VRCNetworkingClient).GetMethod(nameof(VRCNetworkingClient.OnEvent)),
                 typeof(MyselfAvatarClone).GetMethod(nameof(Detour), BindingFlags.NonPublic | BindingFlags.Static).ToNewHarmonyMethod()
             );
+            _loadAvatarMethod =
+                typeof(VRCPlayer).GetMethods()
+                .First(mi =>
+                    mi.Name.StartsWith("Method_Private_Void_Boolean_")
+                    && mi.Name.Length < 31
+                    && mi.GetParameters().Any(pi => pi.IsOptional)
+                    && XrefScanner.UsedBy(mi) // Scan each method
+                        .Any(instance => instance.Type == XrefType.Method
+                            && instance.TryResolve() != null
+                            && instance.TryResolve().Name == "ReloadAvatarNetworkedRPC"));
         }
 
         private IEnumerator QMInitializer()
@@ -52,27 +67,25 @@ namespace MyselfAvatarClone
         private void SelMenu()
         {
             Transform ButtonTP = quickMenu.transform.Find("Container/Window/QMParent/Menu_SelectedUser_Local/ScrollRect/Viewport/VerticalLayoutGroup/Buttons_UserActions");
-            Utils.CreateDefaultButton("複製Avatar", new Vector3(0, -25, 0), "顯示'成功'後 隨便更換一次Avatar即可複製 僅有自己可見", Color.white, ButtonTP,
+            Utils.CreateDefaultButton("複製Avatar", new Vector3(0, -25, 0), "更換Avatar只對自己顯示", Color.white, ButtonTP,
                 new Action(() => {
-                    string target = string.Empty;
                     if (UserSelectionManager.field_Private_Static_UserSelectionManager_0.field_Private_APIUser_1 == null)
                     {
                         return;
                     }
-                    else target = UserSelectionManager.field_Private_Static_UserSelectionManager_0.field_Private_APIUser_1.id;
 
-                    avatarDictCache = VRC.PlayerManager.prop_PlayerManager_0
+                    string target = UserSelectionManager.field_Private_Static_UserSelectionManager_0.field_Private_APIUser_1.id;
+                    AvatarDictCache = PlayerManager.prop_PlayerManager_0
                         .field_Private_List_1_Player_0
                         .ToArray()
-                        .Where(a => a.field_Private_APIUser_0.id == target)
-                        .FirstOrDefault()
-                        .prop_Player_1.field_Private_Hashtable_0["avatarDict"];
-                    Log("成功");
+                        .FirstOrDefault(a => a.field_Private_APIUser_0.id == target)
+                        ?.prop_Player_1.field_Private_Hashtable_0["avatarDict"];
+                    _loadAvatarMethod.Invoke(VRCPlayer.field_Internal_Static_VRCPlayer_0, new object[] { true });
                 }));
-            Utils.CreateDefaultButton("開關自嗨Avatar顯示", new Vector3(0, -25, 0), "開關複製Avatar功能", Color.white, ButtonTP,
+            Utils.CreateDefaultButton("開關Avatar顯示", new Vector3(0, -25, 0), "開關複製Avatar功能 只對自己顯示", Color.white, ButtonTP,
                 new Action(() => {
-                    State ^= true;
-                    Log("SoftClone " + (State ? "自嗨功能開啟" : "自嗨功能關閉"));
+                    _state ^= true;
+                    Log(_state ? "開啟" : "關閉");
                 }));
         }
     }
